@@ -13,21 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Audius stream check
+      - name: iTunes from iPhone user agent
         run: |
           set +e
-          curl -sS "https://api.audius.co/v1/tracks/search?query=lofi&app_name=MyMusicPlayer" > /tmp/au.json
-          python3 - <<'PY'
-          import json, subprocess
-          d = json.load(open('/tmp/au.json'))['data']
-          ok = [t for t in d if t.get('is_streamable') is not False and not t.get('stream_conditions')]
-          print('total', len(d), 'streamable', len(ok))
-          for t in ok[:3]:
-              print('stream field:', json.dumps(t.get('stream'))[:300], '| access:', json.dumps(t.get('access')))
-              out = subprocess.run(['curl', '-sS', '-I', '-H', 'Origin: https://goodlaith01.github.io', f"https://api.audius.co/v1/tracks/{t['id']}/stream?app_name=MyMusicPlayer"], capture_output=True, text=True).stdout
-              print('\n'.join(l for l in out.splitlines() if l.lower().startswith(('http', 'location', 'content-type', 'access-control'))))
-          PY
-      - name: Live site in a real browser
-        run: |
-          npm i --no-save playwright-core@1.56.1 2>&1 | tail -2
-          node .github/diagnose/site.mjs
+          UA='Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1'
+          try() {
+            echo "### $1"
+            curl -sS -o /tmp/r.txt -w 'code=%{http_code} redirect=%{redirect_url} type=%{content_type}\n' -A "$UA" -H 'Origin: https://goodlaith01.github.io' -H 'Accept: application/json' "$1"
+            grep -i -o -m1 'access-control-allow-origin' <(curl -sS -D - -o /dev/null -A "$UA" -H 'Origin: https://goodlaith01.github.io' "$1")
+            head -c 160 /tmp/r.txt | tr '\n' ' '; echo
+          }
+          Q='term=adele&media=music&entity=song&limit=3'
+          try "https://itunes.apple.com/search?$Q"
+          try "https://itunes.apple.com/search?$Q&country=US"
+          try "https://itunes.apple.com/us/search?$Q"
+          try "https://itunes.apple.com/search?$Q&callback=cb"
+          try "https://mzstoreservices-mr.itunes.apple.com/search?$Q"
+          try "https://itunes.apple.com/WebObjects/MZStoreServices.woa/wa/wsSearch?$Q"
+          try "https://itunes.apple.com/lookup?id=262836961&entity=song&limit=3"
+          try "https://itunes.apple.com/search?$Q&lang=en_us&explicit=Yes"
