@@ -1,0 +1,37 @@
+name: Diagnose online music sources (temporary)
+
+on:
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/diagnose.yml', '.github/diagnose/**']
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check APIs
+        run: |
+          set +e
+          ORIGIN='https://goodlaith01.github.io'
+          echo "=== iTunes headers ==="
+          curl -sS -D - -o /tmp/it.json -H "Origin: $ORIGIN" "https://itunes.apple.com/search?term=adele&media=music&entity=song&limit=5" | grep -i -E '^(HTTP|access-control|content-type)'
+          echo "=== iTunes body ==="; head -c 2500 /tmp/it.json; echo
+          echo "=== Audius host list ==="
+          curl -sS -D - -H "Origin: $ORIGIN" "https://api.audius.co" | head -c 1500; echo
+          echo "=== Audius search headers ==="
+          curl -sS -D - -o /tmp/au.json -H "Origin: $ORIGIN" "https://api.audius.co/v1/tracks/search?query=lofi&app_name=MyMusicPlayer" | grep -i -E '^(HTTP|access-control|content-type|location)'
+          echo "=== Audius search body ==="; head -c 4000 /tmp/au.json; echo
+          ID=$(python3 -c "import json;d=json.load(open('/tmp/au.json'));print(d['data'][0]['id'])")
+          echo "=== Audius stream for $ID ==="
+          curl -sS -I -H "Origin: $ORIGIN" "https://api.audius.co/v1/tracks/$ID/stream?app_name=MyMusicPlayer" | grep -i -E '^(HTTP|access-control|content-type|location)'
+          echo "=== Audius search famous query ==="
+          curl -sS "https://api.audius.co/v1/tracks/search?query=adele&app_name=MyMusicPlayer" | python3 -c "import json,sys;d=json.load(sys.stdin);[print(t['title'],'|',t['user']['name'],'|',t.get('is_streamable'),'|',bool(t.get('stream_conditions')),'|',t.get('play_count')) for t in d.get('data',[])[:15]]"
+      - name: Live site in a real browser
+        run: |
+          npm i --no-save playwright@1.56.1 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null 2>&1
+          node .github/diagnose/site.mjs
