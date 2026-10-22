@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>My Music</title>
+  <meta name="description" content="Your personal music player. Add your songs and listen anywhere.">
+  <meta name="theme-color" content="#121212">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="My Music">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img src="icons/icon.svg" alt="" width="32" height="32">
+        <h1>My Music</h1>
+      </div>
+      <label class="btn btn-primary" for="file-input">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+        <span>Add songs</span>
+      </label>
+      <input id="file-input" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.opus" multiple hidden>
+    </header>
+
+    <nav class="toolbar">
+      <div class="tabs" role="tablist">
+        <button class="tab active" role="tab" data-view="all" aria-selected="true">All songs</button>
+        <button class="tab" role="tab" data-view="favorites" aria-selected="false">Favorites</button>
+      </div>
+      <input id="search" class="search" type="search" placeholder="Search songs or artists" autocomplete="off">
+    </nav>
+
+    <main class="library" id="library">
+      <p class="summary" id="summary"></p>
+      <ol class="song-list" id="song-list"></ol>
+      <div class="empty" id="empty" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+        <h2 id="empty-title">Your library is empty</h2>
+        <p id="empty-text">Tap <strong>Add songs</strong> to pick music files from this device.
+          <span class="desktop-only">You can also drag &amp; drop files here.</span></p>
+      </div>
+    </main>
+  </div>
+
+  <footer class="player" id="player">
+    <div class="now-playing">
+      <div class="cover" id="np-cover" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+      </div>
+      <div class="np-text">
+        <div class="np-title" id="np-title">Nothing playing</div>
+        <div class="np-artist" id="np-artist">Pick a song to start</div>
+      </div>
+      <button class="icon-btn fav-btn" id="np-fav" aria-label="Add to favorites" hidden>
+        <svg viewBox="0 0 24 24"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>
+      </button>
+    </div>
+
+    <div class="controls">
+      <div class="buttons">
+        <button class="icon-btn" id="shuffle" aria-label="Shuffle" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04z"/></svg>
+        </button>
+        <button class="icon-btn" id="prev" aria-label="Previous">
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="play-btn" id="play" aria-label="Play">
+          <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
+        </button>
+        <button class="icon-btn" id="next" aria-label="Next">
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm10-12v12h2V6z"/></svg>
+        </button>
+        <button class="icon-btn" id="repeat" aria-label="Repeat: off" data-mode="off">
+          <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg>
+          <span class="repeat-one">1</span>
+        </button>
+      </div>
+      <div class="seek">
+        <span class="time" id="time-current">0:00</span>
+        <input id="seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Seek">
+        <span class="time" id="time-total">0:00</span>
+      </div>
+    </div>
+
+    <div class="volume desktop-only">
+      <button class="icon-btn" id="mute" aria-label="Mute">
+        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg>
+      </button>
+      <input id="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
+    </div>
+  </footer>
+
+  <div class="drop-overlay" id="drop-overlay" hidden>Drop songs to add them</div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <dialog id="edit-dialog">
+    <form method="dialog" id="edit-form">
+      <h2>Edit song</h2>
+      <label>Title <input name="title" required autocomplete="off"></label>
+      <label>Artist <input name="artist" autocomplete="off"></label>
+      <div class="dialog-actions">
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn btn-primary" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <audio id="audio" preload="metadata"></audio>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
