@@ -12,23 +12,22 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: iTunes from iPhone user agent
+      - name: Deezer from iPhone user agent
         run: |
           set +e
           UA='Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1'
-          try() {
-            echo "### $1"
-            curl -sS -o /tmp/r.txt -w 'code=%{http_code} redirect=%{redirect_url} type=%{content_type}\n' -A "$UA" -H 'Origin: https://goodlaith01.github.io' -H 'Accept: application/json' "$1"
-            grep -i -o -m1 'access-control-allow-origin' <(curl -sS -D - -o /dev/null -A "$UA" -H 'Origin: https://goodlaith01.github.io' "$1")
-            head -c 160 /tmp/r.txt | tr '\n' ' '; echo
-          }
-          Q='term=adele&media=music&entity=song&limit=3'
-          try "https://itunes.apple.com/search?$Q"
-          try "https://itunes.apple.com/search?$Q&country=US"
-          try "https://itunes.apple.com/us/search?$Q"
-          try "https://itunes.apple.com/search?$Q&callback=cb"
-          try "https://mzstoreservices-mr.itunes.apple.com/search?$Q"
-          try "https://itunes.apple.com/WebObjects/MZStoreServices.woa/wa/wsSearch?$Q"
-          try "https://itunes.apple.com/lookup?id=262836961&entity=song&limit=3"
-          try "https://itunes.apple.com/search?$Q&lang=en_us&explicit=Yes"
+          echo "### search plain"
+          curl -sS -D /tmp/h.txt -o /tmp/dz.json -A "$UA" -H 'Origin: https://goodlaith01.github.io' "https://api.deezer.com/search/track?q=adele&limit=3"
+          grep -i -E '^(HTTP|access-control|content-type|location)' /tmp/h.txt
+          head -c 1800 /tmp/dz.json; echo
+          echo "### search jsonp"
+          curl -sS -A "$UA" "https://api.deezer.com/search/track?q=adele&limit=1&output=jsonp&callback=cb" | head -c 300; echo
+          echo "### track lookup jsonp"
+          ID=$(python3 -c "import json;print(json.load(open('/tmp/dz.json'))['data'][0]['id'])")
+          curl -sS -A "$UA" "https://api.deezer.com/track/$ID?output=jsonp&callback=cb" | head -c 300; echo
+          echo "### preview"
+          PV=$(python3 -c "import json;print(json.load(open('/tmp/dz.json'))['data'][0]['preview'])")
+          echo "$PV"
+          curl -sS -I -A "$UA" "$PV" | grep -i -E '^(HTTP|content-type|content-length|access-control)'
+          echo "### arabic query"
+          curl -sS "https://api.deezer.com/search/track?q=%D8%B9%D9%85%D8%B1%D9%88%20%D8%AF%D9%8A%D8%A7%D8%A8&limit=3" | python3 -c "import json,sys;[print(t['title'],'|',t['artist']['name'],'|',bool(t['preview'])) for t in json.load(sys.stdin)['data']]"
