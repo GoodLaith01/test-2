@@ -4,11 +4,17 @@ A personal, Spotify-style music player that runs in your browser. Add your own
 song files and listen to your favorites while you work — on **Windows** and
 **iPhone**.
 
-- **My Songs** — add songs from your device (or drag & drop them on a computer)
+- **My Songs** — add songs and music videos from your phone's photo album, or
+  music files from Files / your computer (drag & drop works too). Titles,
+  artists and cover art are read from the files; videos get a cover picture.
 - **Liked Songs** — tap ♡ on any song to save it to your Liked Songs playlist
 - **Search** — your own songs plus free music online:
+  - famous songs from any artist (including Arabic music) as 30-second
+    previews from Deezer, with Apple Music as a backup on computers
   - full songs, free and with no ads, from [Audius](https://audius.co)
-  - famous hits as 30-second previews from Apple Music
+  - Browse tiles (Top Hits, Arabic, Lofi, Focus…) to start quickly
+- **Now Playing** screen — tap the playing song to see big cover art, or the
+  video for songs you added from videos
 - Shuffle, repeat, seek and volume
 - Lock-screen and headphone/keyboard media controls
 - Works offline and installs like an app
@@ -37,8 +43,9 @@ Keyboard: **Space** play/pause · **← / →** skip 5 seconds · **N / P** next
 
 1. Open the site in **Safari**.
 2. Tap **Share → Add to Home Screen**, then open *My Music* from the Home Screen.
-3. Tap **Add songs → Browse** and pick music files from the **Files** app or
-   iCloud Drive.
+3. Tap **Add songs**, then:
+   - **Photo Library** to add songs or music videos from your photo album, or
+   - **Choose Files** to pick music files from the **Files** app or iCloud Drive.
 
 Notes:
 - **Famous songs** play as 30-second previews. Full versions of famous songs
@@ -46,8 +53,10 @@ Notes:
   the whole song, add a music file you own to *My Songs*.
 - Searching and playing online songs needs an internet connection; songs in
   *My Songs* work offline.
-- Songs must be real audio files. Songs from Apple Music or Spotify are
-  protected and can't be added.
+- Songs inside the Apple Music or Spotify apps are protected and can't be
+  added — but songs or videos saved in your photo album or the Files app can.
+- Songs from videos keep playing when you lock the screen; the video itself
+  shows on the Now Playing screen.
 - Each device keeps its own library — add your songs on each device you use.
 - Large libraries use storage on your phone; iOS may clear website storage for
   apps you haven't opened in a long time.

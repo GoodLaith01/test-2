@@ -1,12 +1,14 @@
 import { getAllSongs, addSong, updateSong, deleteSong, getSongBlob } from './db.js';
-import { searchAudius, searchItunes, streamUrl } from './online.js';
+import { searchAudius, searchFamous, resolveStream } from './online.js';
+import { readTags, videoThumbnail } from './tags.js';
 
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
 
 const els = {
   fileInput: $('#file-input'),
-  views: document.querySelectorAll('.view'),
-  navBtns: document.querySelectorAll('.nav-btn'),
+  views: $$('.view'),
+  navBtns: $$('.nav-btn'),
   libraryList: $('[data-list="library"]'),
   librarySummary: $('#library-summary'),
   libraryEmpty: $('#library-empty'),
@@ -15,44 +17,70 @@ const els = {
   likedEmpty: $('#liked-empty'),
   playLiked: $('#play-liked'),
   search: $('#search'),
-  chips: document.querySelectorAll('.chip'),
+  searchClear: $('#search-clear'),
+  chipsBox: $('.chips'),
+  chips: $$('.chip'),
   searchResults: $('#search-results'),
   player: $('#player'),
   audio: $('#audio'),
-  play: $('#play'),
-  prev: $('#prev'),
-  next: $('#next'),
-  shuffle: $('#shuffle'),
-  repeat: $('#repeat'),
-  seek: $('#seek'),
-  timeCurrent: $('#time-current'),
-  timeTotal: $('#time-total'),
   volume: $('#volume'),
   mute: $('#mute'),
+  npOpen: $('#np-open'),
   npArt: $('#np-art'),
   npTitle: $('#np-title'),
   npArtist: $('#np-artist'),
-  npFav: $('#np-fav'),
+  miniProgress: $('#mini-progress'),
+  sheet: $('#np-sheet'),
+  sheetClose: $('#np-close'),
+  sheetArt: $('#sheet-art'),
+  sheetVideo: $('#sheet-video'),
+  sheetTitle: $('#sheet-title'),
+  sheetArtist: $('#sheet-artist'),
+  sheetNote: $('#np-note'),
   dropOverlay: $('#drop-overlay'),
   toast: $('#toast'),
   editDialog: $('#edit-dialog'),
   editForm: $('#edit-form'),
+  editHint: $('#edit-hint'),
 };
 
 const REPEAT_MODES = ['off', 'all', 'one'];
 
 const SOURCES = {
-  local: { label: 'My songs' },
-  audius: { label: 'Audius', open: 'Open on Audius' },
-  itunes: { label: 'Apple Music', open: 'Open in Apple Music' },
+  local: { open: '' },
+  deezer: { open: 'Open in Deezer' },
+  itunes: { open: 'Open in Apple Music' },
+  audius: { open: 'Open on Audius' },
 };
+
+const BROWSE = [
+  { label: 'Top Hits', query: 'top hits', color: '#e13300' },
+  { label: 'Arabic', query: 'arabic hits', color: '#8d67ab' },
+  { label: 'Pop', query: 'pop', color: '#148a08' },
+  { label: 'Lofi', query: 'lofi', color: '#503750' },
+  { label: 'Focus', query: 'focus piano', color: '#1e3264' },
+  { label: 'Chill', query: 'chill', color: '#477d95' },
+  { label: 'Hip-Hop', query: 'hip hop', color: '#ba5d07' },
+  { label: 'Workout', query: 'workout', color: '#777777' },
+  { label: 'Love Songs', query: 'love songs', color: '#dc148c' },
+  { label: 'Rock', query: 'rock', color: '#e91429' },
+  { label: 'Jazz', query: 'jazz', color: '#0d73ec' },
+  { label: 'Classical', query: 'classical', color: '#7d4b32' },
+];
 
 const state = {
   songs: [],            // saved in IndexedDB: songs added from this device + liked online songs
   catalog: new Map(),   // every song we know about (saved + search results), by id
-  lists: {},            // ids shown in each list; clicking a song plays that list in order
+  lists: {},            // ids shown in each list; tapping a song plays that list in order
   view: 'library',
-  search: { query: '', filter: 'all', loading: false, results: { audius: [], itunes: [] }, errors: {} },
+  search: {
+    query: '',
+    filter: 'all',
+    loading: false,
+    results: { famous: [], audius: [] },
+    errors: {},
+    expanded: new Set(),
+  },
   queue: [],
   history: [],
   currentId: null,
@@ -60,6 +88,7 @@ const state = {
   shuffle: false,
   repeat: 'off',
   seeking: false,
+  sheetOpen: false,
 };
 
 const isLocal = (song) => !song.source || song.source === 'local';
@@ -118,30 +147,33 @@ function parseFileName(name) {
   return { artist: '', title: base || name };
 }
 
+// Names the camera or photo picker gives files, which mean nothing to people.
+const GENERIC_NAME = /^(img|vid|mov|trim|rpreplay|screenrecording|video|audio|recording|pxl|dsc)[\s._-]?|^[0-9a-f]{8}-[0-9a-f]{4}-|^\d+$/i;
+
 function readDuration(blob) {
-  return new Promise((resolve, reject) => {
-    const probe = new Audio();
+  return new Promise((resolve) => {
+    const probe = document.createElement('audio');
     const url = URL.createObjectURL(blob);
-    const finish = (fn, value) => {
+    const finish = (value) => {
       clearTimeout(timer);
       probe.removeAttribute('src');
       URL.revokeObjectURL(url);
-      fn(value);
+      resolve(value);
     };
-    const timer = setTimeout(() => finish(resolve, 0), 10000);
+    const timer = setTimeout(() => finish(0), 5000);
     probe.preload = 'metadata';
-    probe.onloadedmetadata = () => finish(resolve, Number.isFinite(probe.duration) ? probe.duration : 0);
-    probe.onerror = () => finish(reject, new Error('unsupported'));
+    probe.onloadedmetadata = () => finish(Number.isFinite(probe.duration) ? probe.duration : 0);
+    probe.onerror = () => finish(0);
     probe.src = url;
   });
 }
 
 let toastTimer;
-function toast(message) {
+function toast(message, ms = 3500) {
   els.toast.textContent = message;
   els.toast.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { els.toast.hidden = true; }, 3500);
+  toastTimer = setTimeout(() => { els.toast.hidden = true; }, ms);
 }
 
 function setRangeFill(input) {
@@ -162,6 +194,23 @@ function adopt(song) {
   return song;
 }
 
+// Cover image URL for a song (online songs have a link; local ones a stored image).
+const artUrls = new Map();
+function artUrl(song, large = false) {
+  if (!song) return '';
+  if (song.artworkBlob) {
+    if (!artUrls.has(song.id)) artUrls.set(song.id, URL.createObjectURL(song.artworkBlob));
+    return artUrls.get(song.id);
+  }
+  return (large && song.artworkLarge) || song.artwork || '';
+}
+
+function forgetArt(id) {
+  const url = artUrls.get(id);
+  if (url) URL.revokeObjectURL(url);
+  artUrls.delete(id);
+}
+
 /* ---------- Rendering ---------- */
 
 const HEART = '<svg viewBox="0 0 24 24"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>';
@@ -169,25 +218,35 @@ const DOTS = '<svg viewBox="0 0 24 24"><path d="M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-
 const NOTE = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>';
 const EQ = '<span class="eq"><i></i><i></i><i></i></span>';
 
+function badgeFor(s) {
+  if (s.source === 'deezer' || s.source === 'itunes') return '<span class="badge">Preview</span>';
+  if (s.source === 'audius') return '<span class="badge badge-free">Full</span>';
+  if (s.hasVideo) return '<span class="badge badge-video">Video</span>';
+  return '';
+}
+
+function artistText(s) {
+  return s.artist || (s.hasVideo ? 'From your videos' : 'Unknown artist');
+}
+
 function rowHtml(s, i) {
   const isCurrent = s.id === state.currentId;
   const paused = isCurrent && els.audio.paused;
-  const art = s.artwork
-    ? `<img class="thumb" src="${escapeHtml(s.artwork)}" alt="" loading="lazy">`
+  const art = artUrl(s);
+  const thumb = art
+    ? `<span class="thumb"><img src="${escapeHtml(art)}" alt="" loading="lazy" decoding="async"></span>`
     : `<span class="thumb">${NOTE}</span>`;
-  const badge = s.source === 'itunes' ? '<span class="badge">Preview</span>'
-    : s.source === 'audius' ? '<span class="badge badge-free">Free</span>' : '';
   return `
     <li class="song${isCurrent ? ' playing' : ''}${paused ? ' paused' : ''}" data-id="${escapeHtml(s.id)}">
       <span class="song-index">${isCurrent ? EQ : i + 1}</span>
-      ${art}
+      ${thumb}
       <div class="song-main">
         <div class="song-title">${escapeHtml(s.title)}</div>
-        <div class="song-artist">${badge}${escapeHtml(s.artist || 'Unknown artist')}</div>
+        <div class="song-artist">${badgeFor(s)}${escapeHtml(artistText(s))}</div>
       </div>
       <button class="icon-btn fav-btn${s.favorite ? ' on' : ''}" data-action="fav"
         aria-label="${s.favorite ? 'Remove from' : 'Add to'} Liked Songs">${HEART}</button>
-      <span class="song-duration">${formatTime(s.duration)}</span>
+      <span class="song-duration">${formatTime(s.source === 'deezer' || s.source === 'itunes' ? s.fullDuration || s.duration : s.duration)}</span>
       <div class="song-menu">
         <button class="icon-btn" data-action="menu" aria-label="More options">${DOTS}</button>
       </div>
@@ -238,53 +297,79 @@ function renderLiked() {
 
 const SECTIONS = [
   { key: 'local', title: 'From My Songs', note: '' },
-  { key: 'audius', title: 'Full songs — free, no ads', note: 'From Audius, where artists share their music for free.' },
-  { key: 'itunes', title: 'Famous hits — 30-second previews', note: 'From Apple Music. Full versions of famous songs need a music subscription.' },
+  { key: 'famous', title: 'Songs', note: 'Famous songs · 30-second previews' },
+  { key: 'audius', title: 'Full songs — free, no ads', note: 'Shared for free by artists on Audius' },
 ];
+const SECTION_LIMIT = 6;
+
+const SKELETON = `<ol class="song-list skeleton">${'<li class="song"><span></span><span class="thumb"></span><div class="song-main"><div class="sk-line"></div><div class="sk-line short"></div></div></li>'.repeat(4)}</ol>`;
+
+function renderBrowse() {
+  els.searchResults.innerHTML = `
+    <h3 class="browse-title">Browse</h3>
+    <div class="browse-grid">
+      ${BROWSE.map((b) => `<button class="browse-tile" style="--tile:${b.color}" data-query="${escapeHtml(b.query)}">${escapeHtml(b.label)}</button>`).join('')}
+    </div>
+    <div class="search-hint">
+      <p><span class="badge">Preview</span> Famous songs from any artist play as 30-second previews.</p>
+      <p><span class="badge badge-free">Full</span> Full songs are free with no ads, shared by artists on Audius.</p>
+      <p>Tap ♡ on any song to save it to <strong>Liked Songs</strong>.</p>
+    </div>`;
+}
 
 function renderSearch() {
-  const { query, filter, loading, results, errors } = state.search;
+  const { query, filter, loading, results, errors, expanded } = state.search;
   const q = query.trim();
+  els.searchClear.hidden = !query;
+  els.chipsBox.hidden = !q;
 
   if (!q) {
-    els.searchResults.innerHTML = `
-      <div class="search-hint">
-        <h3>Find something to listen to</h3>
-        <p>Type a song, artist or genre — for example <em>lofi</em>, <em>piano</em> or <em>Adele</em>.</p>
-        <ul>
-          <li><span class="badge badge-free">Free</span> <strong>Full songs</strong> — free and with no ads, from artists who share their music on Audius.</li>
-          <li><span class="badge">Preview</span> <strong>Famous hits</strong> — 30-second previews from Apple Music.</li>
-          <li>Songs you added to <strong>My Songs</strong>.</li>
-        </ul>
-        <p>Tap ♡ on any song to save it to <strong>Liked Songs</strong>.</p>
-      </div>`;
+    renderBrowse();
     return;
   }
 
-  const songsFor = { local: localMatches(q), audius: results.audius, itunes: results.itunes };
+  const songsFor = { local: localMatches(q), famous: results.famous, audius: results.audius };
   const html = SECTIONS
     .filter(({ key }) => filter === 'all' || filter === key)
     .map(({ key, title, note }) => {
       const songs = songsFor[key];
       let body;
-      if (key !== 'local' && loading) body = '<p class="section-status">Searching…</p>';
+      let more = '';
+      if (key !== 'local' && loading) body = SKELETON;
       else if (key !== 'local' && errors[key]) body = `<p class="section-status">${escapeHtml(errors[key])}</p>`;
       else if (!songs.length) {
-        if (filter === 'all' && key === 'local') return '';
+        if (filter === 'all') return '';
         body = '<p class="section-status">No results.</p>';
-      } else body = `<ol class="song-list" data-list="search-${key}"></ol>`;
+      } else {
+        body = `<ol class="song-list" data-list="search-${key}"></ol>`;
+        if (filter === 'all' && songs.length > SECTION_LIMIT && !expanded.has(key)) {
+          more = `<button class="see-all" data-expand="${key}">See all ${songs.length}</button>`;
+        }
+      }
       return `
         <section class="result-section">
-          <h3>${title}</h3>
-          ${note ? `<p class="section-note">${note}</p>` : ''}
+          <div class="section-head">
+            <h3>${title}</h3>
+            ${note ? `<p class="section-note">${note}</p>` : ''}
+          </div>
           ${body}
+          ${more}
         </section>`;
     }).join('');
 
-  els.searchResults.innerHTML = html;
+  els.searchResults.innerHTML = html || (loading ? '' : `
+    <div class="empty small">
+      <h3>No results for “${escapeHtml(q)}”</h3>
+      <p>Check the spelling, or try an artist or song name.</p>
+    </div>`);
+
   for (const { key } of SECTIONS) {
     const list = els.searchResults.querySelector(`[data-list="search-${key}"]`);
-    if (list) fillList(list, songsFor[key]);
+    if (!list) continue;
+    const all = songsFor[key];
+    const show = filter === 'all' && !expanded.has(key) ? all.slice(0, SECTION_LIMIT) : all;
+    fillList(list, show);
+    state.lists[`search-${key}`] = all.map((s) => s.id); // play the whole section, not just what's shown
   }
 }
 
@@ -295,12 +380,14 @@ function render() {
     b.classList.toggle('active', active);
     if (active) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
+  document.body.dataset.view = state.view;
   if (state.view === 'library') renderLibrary();
   if (state.view === 'liked') renderLiked();
   if (state.view === 'search') renderSearch();
 }
 
 function goTo(view) {
+  closeSheet();
   if (state.view === view) return;
   state.view = view;
   closeMenus();
@@ -310,41 +397,61 @@ function goTo(view) {
   if (view === 'search' && matchMedia('(hover: hover)').matches) els.search.focus();
 }
 
-/* ---------- Adding, liking, editing, deleting ---------- */
+// Broken cover images fall back to the music-note placeholder.
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (img.tagName !== 'IMG') return;
+  if (img.closest('.thumb')) img.closest('.thumb').innerHTML = NOTE;
+  else if (img === els.npArt || img === els.sheetArt) img.hidden = true;
+}, true);
+
+/* ---------- Adding songs ---------- */
+
+const AUDIO_EXT = /\.(mp3|m4a|aac|wav|flac|ogg|opus|oga|weba|webm|mp4|m4v|mov|3gp|caf|aif|aiff)$/i;
 
 async function addFiles(fileList) {
-  const files = [...fileList].filter((f) => f.type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|flac|ogg|opus|oga|webm)$/i.test(f.name));
+  const files = [...fileList].filter((f) => f.type.startsWith('audio/') || f.type.startsWith('video/') || AUDIO_EXT.test(f.name));
   if (!files.length) {
-    toast('No audio files found.');
+    toast('Those files aren’t songs or videos.');
     return;
   }
 
   let added = 0;
   const failed = [];
-  toast(`Adding ${files.length} song${files.length === 1 ? '' : 's'}…`);
+  const newSongs = [];
   if (state.view !== 'library') goTo('library');
 
-  for (const file of files) {
+  for (const [i, file] of files.entries()) {
+    toast(files.length > 1 ? `Adding ${i + 1} of ${files.length}…` : 'Adding…', 60000);
     try {
       // Copy the bytes so the song doesn't depend on the original file staying available.
-      const blob = new Blob([await file.arrayBuffer()], { type: file.type || 'audio/mpeg' });
-      const duration = await readDuration(blob);
-      const { artist, title } = parseFileName(file.name);
+      const type = file.type || (/\.(mov|mp4|m4v)$/i.test(file.name) ? 'video/mp4' : 'audio/mpeg');
+      const blob = new Blob([await file.arrayBuffer()], { type });
+      const tags = await readTags(blob);
+      const hasVideo = !!tags.hasVideo || (type.startsWith('video/') && tags.hasVideo !== false && !tags.duration);
+      const duration = tags.duration || await readDuration(blob);
+      const fromName = parseFileName(file.name);
+      const artworkBlob = tags.artwork || (hasVideo || type.startsWith('video/') ? await videoThumbnail(blob) : null);
+
       const song = {
         id: newId(),
         source: 'local',
-        title,
-        artist,
+        title: tags.title || fromName.title,
+        artist: tags.artist || fromName.artist,
+        album: tags.album || '',
         duration,
         type: blob.type,
         size: blob.size,
         fileName: file.name,
+        hasVideo: !!(hasVideo || (type.startsWith('video/') && artworkBlob)),
+        artworkBlob: artworkBlob || undefined,
         favorite: false,
         addedAt: Date.now() + added, // keeps the picked order stable
       };
       await addSong(song, blob);
       state.songs.push(song);
       state.catalog.set(song.id, song);
+      newSongs.push(song);
       added++;
       render();
     } catch (err) {
@@ -356,11 +463,17 @@ async function addFiles(fileList) {
   if (added) navigator.storage?.persist?.().catch(() => {});
 
   if (failed.length) {
-    toast(`Added ${added}. Couldn't add ${failed.length} (format not supported or storage full): ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}`);
+    const quota = failed.length && added === 0 ? ' Your device may be out of space.' : '';
+    toast(`Added ${added}. Couldn’t add ${failed.length}: ${failed.slice(0, 2).join(', ')}${failed.length > 2 ? '…' : ''}.${quota}`, 6000);
   } else {
     toast(`Added ${added} song${added === 1 ? '' : 's'}.`);
   }
+
+  // A single video with a camera name like "IMG_1234" gets a real name right away.
+  if (newSongs.length === 1 && GENERIC_NAME.test(newSongs[0].title)) editSong(newSongs[0].id, { isNew: true });
 }
+
+/* ---------- Liking, editing, deleting ---------- */
 
 async function toggleFavorite(id) {
   const song = songById(id);
@@ -399,17 +512,20 @@ async function removeSong(id) {
   await deleteSong(id);
   state.songs = state.songs.filter((s) => s.id !== id);
   state.catalog.delete(id);
+  forgetArt(id);
   state.queue = state.queue.filter((q) => q !== id);
   state.history = state.history.filter((h) => h !== id);
   render();
   toast('Song deleted.');
 }
 
-function editSong(id) {
+function editSong(id, { isNew = false } = {}) {
   const song = songById(id);
   if (!song) return;
-  els.editForm.elements.title.value = song.title;
+  els.editForm.elements.title.value = isNew ? '' : song.title;
+  els.editForm.elements.title.placeholder = song.title;
   els.editForm.elements.artist.value = song.artist;
+  els.editHint.hidden = !isNew;
   els.editDialog.dataset.id = id;
   els.editDialog.showModal();
 }
@@ -428,7 +544,7 @@ els.editDialog.addEventListener('close', async () => {
 /* ---------- Song menu ---------- */
 
 function closeMenus() {
-  document.querySelectorAll('.menu').forEach((m) => m.remove());
+  $$('.menu').forEach((m) => m.remove());
 }
 
 function openMenu(button, id) {
@@ -438,7 +554,7 @@ function openMenu(button, id) {
   const menu = document.createElement('div');
   menu.className = 'menu';
   menu.innerHTML = isLocal(song)
-    ? `<button data-action="edit">Edit details</button>
+    ? `<button data-action="edit">Edit name</button>
        <button data-action="delete" class="danger">Delete from device</button>`
     : `<button data-action="like">${song.favorite ? 'Remove from' : 'Save to'} Liked Songs</button>
        ${song.link ? `<a href="${escapeHtml(song.link)}" target="_blank" rel="noopener">${SOURCES[song.source].open} ↗</a>` : ''}`;
@@ -461,11 +577,26 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.song-menu')) closeMenus();
   const goto = e.target.closest('[data-goto]');
   if (goto) goTo(goto.dataset.goto);
+  const cmd = e.target.closest('[data-cmd]');
+  if (cmd) runCommand(cmd.dataset.cmd);
 });
 
 document.querySelector('main').addEventListener('click', (e) => {
+  const tile = e.target.closest('[data-query]');
+  if (tile) {
+    els.search.value = tile.dataset.query;
+    onSearchInput({ immediate: true });
+    return;
+  }
+  const expand = e.target.closest('[data-expand]');
+  if (expand) {
+    state.search.expanded.add(expand.dataset.expand);
+    renderSearch();
+    return;
+  }
+
   const row = e.target.closest('.song');
-  if (!row || e.target.closest('.menu')) return;
+  if (!row || e.target.closest('.menu') || row.closest('.skeleton')) return;
   const id = row.dataset.id;
   const action = e.target.closest('[data-action]')?.dataset.action;
   if (action === 'fav') return toggleFavorite(id);
@@ -480,44 +611,55 @@ document.querySelector('main').addEventListener('click', (e) => {
 
 /* ---------- Playback ---------- */
 
+let playToken = 0;
+
 async function playSong(id, queue = state.queue, { fromHistory = false } = {}) {
   const song = songById(id);
   if (!song) return;
-
-  let src;
-  if (isLocal(song)) {
-    const blob = await getSongBlob(id);
-    if (!blob) {
-      toast('This song’s file is missing. Try deleting and re-adding it.');
-      return;
-    }
-    if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
-    state.objectUrl = URL.createObjectURL(blob);
-    src = state.objectUrl;
-  } else {
-    if (!navigator.onLine) toast('You’re offline. Online songs need an internet connection.');
-    if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
-    state.objectUrl = null;
-    src = streamUrl(song);
-  }
+  const token = ++playToken;
 
   if (!fromHistory && state.currentId && state.currentId !== id) state.history.push(state.currentId);
   if (state.history.length > 200) state.history.shift();
-
   state.queue = queue;
   state.currentId = id;
-  els.audio.src = src;
+  updateNowPlaying();
+  render();
 
+  let src;
+  try {
+    if (isLocal(song)) {
+      const blob = await getSongBlob(id);
+      if (!blob) throw new Error('missing');
+      if (token !== playToken) return;
+      if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+      state.objectUrl = URL.createObjectURL(blob);
+      src = state.objectUrl;
+    } else {
+      if (!navigator.onLine) toast('You’re offline. Online songs need an internet connection.');
+      src = await resolveStream(song);
+      if (token !== playToken) return;
+      if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+      state.objectUrl = null;
+    }
+  } catch (err) {
+    console.error(err);
+    if (token === playToken) {
+      toast(isLocal(song) ? 'This song’s file is missing. Try deleting and adding it again.' : 'Couldn’t load this song. Check your connection.');
+    }
+    return;
+  }
+
+  els.audio.src = src;
+  syncSheetMedia();
   try {
     await els.audio.play();
   } catch (err) {
-    if (err.name !== 'AbortError') {
+    if (err.name !== 'AbortError' && token === playToken) {
       console.error(err);
       toast('Couldn’t play this song.');
     }
   }
   updateNowPlaying();
-  render();
 }
 
 function playList(ids) {
@@ -526,13 +668,14 @@ function playList(ids) {
   return playSong(first, ids);
 }
 
+function visibleListIds() {
+  if (state.view !== 'search') return state.lists[state.view] || [];
+  const list = els.searchResults.querySelector('[data-list]');
+  return list ? state.lists[list.dataset.list] || [] : [];
+}
+
 function togglePlay() {
-  if (!state.currentId) {
-    const ids = state.view === 'search'
-      ? Object.entries(state.lists).find(([k, v]) => k.startsWith('search-') && v.length && els.searchResults.querySelector(`[data-list="${k}"]`))?.[1] || []
-      : state.lists[state.view] || [];
-    return playList(ids);
-  }
+  if (!state.currentId) return playList(visibleListIds());
   if (els.audio.paused) {
     els.audio.play().catch(() => {});
   } else {
@@ -541,12 +684,14 @@ function togglePlay() {
 }
 
 function stop() {
+  playToken++;
   els.audio.pause();
   els.audio.removeAttribute('src');
   els.audio.load();
   if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
   state.objectUrl = null;
   state.currentId = null;
+  closeSheet();
   updateNowPlaying();
 }
 
@@ -573,8 +718,7 @@ function playNext({ auto = false } = {}) {
   if (id === null) {
     if (auto) {
       els.audio.currentTime = 0;
-      updateNowPlaying();
-      render();
+      updatePlayState();
     }
     return;
   }
@@ -606,32 +750,60 @@ function playPrev() {
   els.audio.currentTime = 0;
 }
 
+function runCommand(cmd) {
+  if (cmd === 'play') togglePlay();
+  else if (cmd === 'next') playNext();
+  else if (cmd === 'prev') playPrev();
+  else if (cmd === 'fav') { if (state.currentId) toggleFavorite(state.currentId); }
+  else if (cmd === 'shuffle') {
+    state.shuffle = !state.shuffle;
+    updateModeButtons();
+    saveSettings();
+    toast(state.shuffle ? 'Shuffle on' : 'Shuffle off', 1500);
+  } else if (cmd === 'repeat') {
+    state.repeat = REPEAT_MODES[(REPEAT_MODES.indexOf(state.repeat) + 1) % REPEAT_MODES.length];
+    updateModeButtons();
+    saveSettings();
+    toast({ off: 'Repeat off', all: 'Repeat all', one: 'Repeat this song' }[state.repeat], 1500);
+  }
+}
+
+function isPreview(song) {
+  return song?.source === 'deezer' || song?.source === 'itunes';
+}
+
 function updateNowPlaying() {
   const song = songById(state.currentId);
+  els.player.hidden = !song;
+  document.body.classList.toggle('has-player', !!song);
+
   els.npTitle.textContent = song ? song.title : 'Nothing playing';
-  els.npArtist.textContent = song
-    ? `${song.artist || 'Unknown artist'}${song.source === 'itunes' ? ' · 30-sec preview' : ''}`
-    : 'Pick a song to start';
-  if (song?.artwork) {
-    if (els.npArt.getAttribute('src') !== song.artwork) els.npArt.src = song.artwork;
+  els.npArtist.textContent = song ? `${artistText(song)}${isPreview(song) ? ' · Preview' : ''}` : '';
+  const art = artUrl(song);
+  if (art) {
+    if (els.npArt.getAttribute('src') !== art) els.npArt.src = art;
     els.npArt.hidden = false;
   } else {
     els.npArt.hidden = true;
     els.npArt.removeAttribute('src');
   }
-  els.npFav.hidden = !song;
-  els.npFav.classList.toggle('on', !!song?.favorite);
-  els.npFav.setAttribute('aria-label', song?.favorite ? 'Remove from Liked Songs' : 'Add to Liked Songs');
+
+  $$('[data-cmd="fav"]').forEach((b) => {
+    b.classList.toggle('on', !!song?.favorite);
+    b.setAttribute('aria-label', song?.favorite ? 'Remove from Liked Songs' : 'Add to Liked Songs');
+  });
   document.title = song && !els.audio.paused ? `${song.title} · My Music` : 'My Music';
+  updateSheet();
 
   if ('mediaSession' in navigator) {
+    const big = artUrl(song, true);
     navigator.mediaSession.metadata = song
       ? new MediaMetadata({
           title: song.title,
           artist: song.artist || 'Unknown artist',
           album: song.album || 'My Music',
-          artwork: song.artwork
-            ? [{ src: song.artwork, sizes: '480x480' }]
+          artwork: big
+            ? [{ src: big, sizes: '512x512' }]
             : [
                 { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
                 { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -643,35 +815,127 @@ function updateNowPlaying() {
 
 function updatePlayState() {
   const playing = !els.audio.paused && !!state.currentId;
-  els.player.classList.toggle('is-playing', playing);
-  els.play.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  document.body.classList.toggle('is-playing', playing);
+  $$('[data-cmd="play"]').forEach((b) => b.setAttribute('aria-label', playing ? 'Pause' : 'Play'));
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
   updateNowPlaying();
-  // Only the playing row and its neighbours change; avoid re-rendering search while typing.
-  document.querySelectorAll('.song').forEach((row) => {
+  $$('.song').forEach((row) => {
     const isCurrent = row.dataset.id === state.currentId;
     row.classList.toggle('playing', isCurrent);
     row.classList.toggle('paused', isCurrent && !playing);
   });
+  syncVideo();
 }
 
 function updateModeButtons() {
-  els.shuffle.setAttribute('aria-pressed', String(state.shuffle));
-  els.repeat.dataset.mode = state.repeat;
-  els.repeat.setAttribute('aria-label', `Repeat: ${state.repeat}`);
+  $$('[data-cmd="shuffle"]').forEach((b) => b.setAttribute('aria-pressed', String(state.shuffle)));
+  $$('[data-cmd="repeat"]').forEach((b) => {
+    b.dataset.mode = state.repeat;
+    b.setAttribute('aria-label', `Repeat: ${state.repeat}`);
+  });
 }
+
+/* ---------- Now Playing screen (with video) ---------- */
+
+function openSheet() {
+  if (!state.currentId) return;
+  state.sheetOpen = true;
+  els.sheet.hidden = false;
+  document.body.classList.add('sheet-open');
+  updateSheet();
+  syncSheetMedia();
+}
+
+function closeSheet() {
+  if (!state.sheetOpen) return;
+  state.sheetOpen = false;
+  els.sheet.hidden = true;
+  document.body.classList.remove('sheet-open');
+  els.sheetVideo.pause();
+  els.sheetVideo.removeAttribute('src');
+  els.sheetVideo.load();
+}
+
+function updateSheet() {
+  if (!state.sheetOpen) return;
+  const song = songById(state.currentId);
+  if (!song) return closeSheet();
+  els.sheetTitle.textContent = song.title;
+  els.sheetArtist.textContent = artistText(song);
+  const showVideo = isLocal(song) && song.hasVideo;
+  const art = artUrl(song, true);
+  els.sheetArt.hidden = showVideo || !art;
+  if (!showVideo && art && els.sheetArt.getAttribute('src') !== art) els.sheetArt.src = art;
+  els.sheetVideo.hidden = !showVideo;
+  els.sheetNote.hidden = !isPreview(song);
+  els.sheetNote.textContent = isPreview(song)
+    ? 'This is a 30-second preview. To hear the whole song, add a music file you own in My Songs, or open it in a music app from the ⋯ menu.'
+    : '';
+}
+
+// The video is shown muted and follows the song, so the music keeps playing
+// even when the screen is locked or you switch apps.
+function syncSheetMedia() {
+  if (!state.sheetOpen) return;
+  const song = songById(state.currentId);
+  if (!song || !isLocal(song) || !song.hasVideo || !state.objectUrl) {
+    if (els.sheetVideo.getAttribute('src')) {
+      els.sheetVideo.removeAttribute('src');
+      els.sheetVideo.load();
+    }
+    return;
+  }
+  if (els.sheetVideo.getAttribute('src') !== state.objectUrl) {
+    els.sheetVideo.src = state.objectUrl;
+    els.sheetVideo.currentTime = els.audio.currentTime || 0;
+  }
+  syncVideo();
+}
+
+function syncVideo() {
+  const v = els.sheetVideo;
+  if (!state.sheetOpen || !v.getAttribute('src') || document.hidden) return;
+  if (Math.abs(v.currentTime - els.audio.currentTime) > 0.3) {
+    try { v.currentTime = els.audio.currentTime; } catch { /* not seekable yet */ }
+  }
+  if (els.audio.paused) v.pause();
+  else v.play().catch(() => {});
+}
+
+els.npOpen.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-cmd]')) openSheet();
+});
+els.npOpen.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target === els.npOpen) {
+    e.preventDefault();
+    openSheet();
+  }
+});
+els.sheetClose.addEventListener('click', closeSheet);
+els.sheet.addEventListener('click', (e) => { if (e.target === els.sheet) closeSheet(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) els.sheetVideo.pause();
+  else syncVideo();
+});
 
 /* ---------- Search ---------- */
 
 let searchTimer;
 let searchCtrl;
 
+function errorText(name) {
+  return navigator.onLine
+    ? `Couldn’t reach ${name} right now. Try again in a moment.`
+    : 'You’re offline. Connect to the internet to search online music.';
+}
+
 async function runOnlineSearch() {
   const q = state.search.query.trim();
   searchCtrl?.abort();
+  state.search.expanded = new Set();
   if (q.length < 2) {
     state.search.loading = false;
-    state.search.results = { audius: [], itunes: [] };
+    state.search.results = { famous: [], audius: [] };
     state.search.errors = {};
     renderSearch();
     return;
@@ -682,42 +946,44 @@ async function runOnlineSearch() {
   state.search.loading = true;
   renderSearch();
 
-  const [audius, itunes] = await Promise.allSettled([searchAudius(q, ctrl.signal), searchItunes(q, ctrl.signal)]);
+  const [famous, audius] = await Promise.allSettled([searchFamous(q, ctrl.signal), searchAudius(q, ctrl.signal)]);
   if (ctrl !== searchCtrl) return; // a newer search started
-
-  const offline = !navigator.onLine;
-  const errorText = (name) => (offline
-    ? 'You’re offline. Connect to the internet to search online music.'
-    : `Couldn’t reach ${name} right now. Try again in a moment.`);
 
   state.search.loading = false;
   state.search.results = {
+    famous: famous.status === 'fulfilled' ? famous.value.map(adopt) : [],
     audius: audius.status === 'fulfilled' ? audius.value.map(adopt) : [],
-    itunes: itunes.status === 'fulfilled' ? itunes.value.map(adopt) : [],
   };
   state.search.errors = {
+    famous: famous.status === 'rejected' ? errorText('the music catalog') : null,
     audius: audius.status === 'rejected' ? errorText('Audius') : null,
-    itunes: itunes.status === 'rejected' ? errorText('Apple Music') : null,
   };
+  if (famous.status === 'rejected') console.warn('Famous songs search failed', famous.reason);
   if (audius.status === 'rejected') console.warn('Audius search failed', audius.reason);
-  if (itunes.status === 'rejected') console.warn('iTunes search failed', itunes.reason);
   if (state.view === 'search') renderSearch();
 }
 
-els.search.addEventListener('input', () => {
+function onSearchInput({ immediate = false } = {}) {
   state.search.query = els.search.value;
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(runOnlineSearch, 400);
-  if (!state.search.query.trim()) runOnlineSearch();
-  else renderSearch();
-});
+  if (immediate || !state.search.query.trim()) runOnlineSearch();
+  else {
+    searchTimer = setTimeout(runOnlineSearch, 350);
+    renderSearch();
+  }
+}
 
+els.search.addEventListener('input', () => onSearchInput());
 els.search.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
-    clearTimeout(searchTimer);
-    runOnlineSearch();
+    onSearchInput({ immediate: true });
     els.search.blur(); // hides the iPhone keyboard
   }
+});
+els.searchClear.addEventListener('click', () => {
+  els.search.value = '';
+  onSearchInput();
+  els.search.focus();
 });
 
 els.chips.forEach((chip) => chip.addEventListener('click', () => {
@@ -727,9 +993,9 @@ els.chips.forEach((chip) => chip.addEventListener('click', () => {
 }));
 
 /* ---------- iPhone audio unlock ----------
-   Safari only lets an <audio> element start playing from a tap. Songs load from
-   IndexedDB asynchronously, which loses the tap, so on the very first tap we play
-   a tiny silent clip on the element; after that Safari allows playback on it. */
+   Safari only lets an <audio> element start playing from a tap. Songs load
+   asynchronously, which loses the tap, so on the very first tap we play a tiny
+   silent clip on the element; after that Safari allows playback on it. */
 
 let unlockUrl = null;
 
@@ -767,18 +1033,20 @@ function unlockAudio() {
 els.audio.addEventListener('play', updatePlayState);
 els.audio.addEventListener('pause', updatePlayState);
 els.audio.addEventListener('ended', () => { if (state.currentId) playNext({ auto: true }); });
+els.audio.addEventListener('seeked', syncVideo);
 els.audio.addEventListener('error', () => {
   const song = songById(state.currentId);
-  if (!song) return;
+  if (!song || !els.audio.getAttribute('src') || els.audio.src === unlockUrl) return;
   toast(isLocal(song)
     ? 'Couldn’t play this song. The format may not be supported on this device.'
     : 'Couldn’t load this song. Check your internet connection or try another one.');
 });
 
 els.audio.addEventListener('loadedmetadata', () => {
+  if (!state.currentId) return;
   const d = els.audio.duration;
-  els.seek.max = Number.isFinite(d) ? d : 0;
-  els.timeTotal.textContent = formatTime(d);
+  $$('.seek-input').forEach((s) => { s.max = Number.isFinite(d) ? d : 0; });
+  $$('.time-total').forEach((t) => { t.textContent = formatTime(d); });
   // Fill in a duration we couldn't read when the song was added.
   const song = songById(state.currentId);
   if (song && isLocal(song) && !song.duration && Number.isFinite(d)) {
@@ -790,33 +1058,31 @@ els.audio.addEventListener('loadedmetadata', () => {
 
 let lastPositionUpdate = 0;
 els.audio.addEventListener('timeupdate', () => {
+  if (!state.currentId) return;
+  const t = els.audio.currentTime;
+  const d = els.audio.duration;
   if (!state.seeking) {
-    els.seek.value = els.audio.currentTime;
-    els.timeCurrent.textContent = formatTime(els.audio.currentTime);
-    setRangeFill(els.seek);
+    $$('.seek-input').forEach((s) => { s.value = t; setRangeFill(s); });
+    $$('.time-current').forEach((el) => { el.textContent = formatTime(t); });
   }
+  els.miniProgress.style.width = Number.isFinite(d) && d > 0 ? `${(t / d) * 100}%` : '0%';
+  syncVideo();
+
   const now = Date.now();
   if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && now - lastPositionUpdate > 1000) {
     lastPositionUpdate = now;
-    const d = els.audio.duration;
     if (Number.isFinite(d) && d > 0) {
       try {
-        navigator.mediaSession.setPositionState({
-          duration: d,
-          playbackRate: els.audio.playbackRate,
-          position: Math.min(els.audio.currentTime, d),
-        });
+        navigator.mediaSession.setPositionState({ duration: d, playbackRate: els.audio.playbackRate, position: Math.min(t, d) });
       } catch { /* ignore */ }
     }
   }
 });
 
 els.audio.addEventListener('emptied', () => {
-  els.seek.max = 0;
-  els.seek.value = 0;
-  setRangeFill(els.seek);
-  els.timeCurrent.textContent = '0:00';
-  els.timeTotal.textContent = '0:00';
+  $$('.seek-input').forEach((s) => { s.max = 0; s.value = 0; setRangeFill(s); });
+  $$('.time-current, .time-total').forEach((el) => { el.textContent = '0:00'; });
+  els.miniProgress.style.width = '0%';
 });
 
 els.audio.addEventListener('volumechange', () => {
@@ -828,31 +1094,18 @@ els.audio.addEventListener('volumechange', () => {
 
 /* ---------- Controls ---------- */
 
-els.play.addEventListener('click', togglePlay);
-els.next.addEventListener('click', () => playNext());
-els.prev.addEventListener('click', playPrev);
 els.playLiked.addEventListener('click', () => playList(state.lists.liked || []));
 
-els.shuffle.addEventListener('click', () => {
-  state.shuffle = !state.shuffle;
-  updateModeButtons();
-  saveSettings();
-});
-
-els.repeat.addEventListener('click', () => {
-  state.repeat = REPEAT_MODES[(REPEAT_MODES.indexOf(state.repeat) + 1) % REPEAT_MODES.length];
-  updateModeButtons();
-  saveSettings();
-});
-
-els.seek.addEventListener('input', () => {
-  state.seeking = true;
-  els.timeCurrent.textContent = formatTime(Number(els.seek.value));
-  setRangeFill(els.seek);
-});
-els.seek.addEventListener('change', () => {
-  if (state.currentId) els.audio.currentTime = Number(els.seek.value);
-  state.seeking = false;
+$$('.seek-input').forEach((seek) => {
+  seek.addEventListener('input', () => {
+    state.seeking = true;
+    $$('.time-current').forEach((el) => { el.textContent = formatTime(Number(seek.value)); });
+    $$('.seek-input').forEach((s) => { s.value = seek.value; setRangeFill(s); });
+  });
+  seek.addEventListener('change', () => {
+    if (state.currentId) els.audio.currentTime = Number(seek.value);
+    state.seeking = false;
+  });
 });
 
 els.volume.addEventListener('input', () => {
@@ -863,8 +1116,6 @@ els.mute.addEventListener('click', () => {
   els.audio.muted = !els.audio.muted;
 });
 
-els.npFav.addEventListener('click', () => state.currentId && toggleFavorite(state.currentId));
-
 els.fileInput.addEventListener('change', async () => {
   const files = els.fileInput.files;
   if (files?.length) await addFiles(files);
@@ -874,9 +1125,11 @@ els.fileInput.addEventListener('change', async () => {
 /* ---------- Keyboard shortcuts ---------- */
 
 document.addEventListener('keydown', (e) => {
-  if (e.target.closest('input, textarea, dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Escape' && state.sheetOpen) return closeSheet();
+  if (e.target.closest('input, textarea, dialog, [role="button"]') || e.metaKey || e.ctrlKey || e.altKey) return;
   switch (e.key) {
     case ' ':
+      if (e.target.closest('button')) return;
       e.preventDefault();
       togglePlay();
       break;
@@ -950,7 +1203,7 @@ async function init() {
   updateModeButtons();
   els.volume.value = els.audio.volume;
   setRangeFill(els.volume);
-  setRangeFill(els.seek);
+  $$('.seek-input').forEach(setRangeFill);
 
   try {
     state.songs = await getAllSongs();
@@ -960,6 +1213,7 @@ async function init() {
     toast('Couldn’t open your library. Private browsing may block storage.');
   }
   render();
+  updateNowPlaying();
 
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch((err) => console.warn('Service worker not registered', err));
