@@ -4,6 +4,13 @@ import { readTags, videoThumbnail } from './tags.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
+/** The element an event happened on. */
+const targetOf = (e) => /** @type {HTMLElement} */ (e.target);
+/**
+ * The nearest element matching `sel`, starting where an event happened.
+ * @returns {HTMLElement | null}
+ */
+const closest = (e, sel) => targetOf(e).closest(sel);
 
 const els = {
   fileInput: $('#file-input'),
@@ -218,6 +225,11 @@ const DOTS = '<svg viewBox="0 0 24 24"><path d="M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-
 const NOTE = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>';
 const EQ = '<span class="eq"><i></i><i></i><i></i></span>';
 
+// Length shown to people: the full song length, even for 30-second previews.
+function shownDuration(s) {
+  return s.source === 'deezer' || s.source === 'itunes' ? s.fullDuration || s.duration : s.duration;
+}
+
 function badgeFor(s) {
   if (s.source === 'deezer' || s.source === 'itunes') return '<span class="badge">Preview</span>';
   if (s.source === 'audius') return '<span class="badge badge-free">Full</span>';
@@ -244,11 +256,11 @@ function rowHtml(s, i) {
         <div class="song-title">${escapeHtml(s.title)}</div>
         <div class="song-artist">${badgeFor(s)}${escapeHtml(artistText(s))}</div>
       </div>
-      <button class="icon-btn fav-btn${s.favorite ? ' on' : ''}" data-action="fav"
+      <button type="button" class="icon-btn fav-btn${s.favorite ? ' on' : ''}" data-action="fav"
         aria-label="${s.favorite ? 'Remove from' : 'Add to'} Liked Songs">${HEART}</button>
-      <span class="song-duration">${formatTime(s.source === 'deezer' || s.source === 'itunes' ? s.fullDuration || s.duration : s.duration)}</span>
+      <span class="song-duration">${formatTime(shownDuration(s))}</span>
       <div class="song-menu">
-        <button class="icon-btn" data-action="menu" aria-label="More options">${DOTS}</button>
+        <button type="button" class="icon-btn" data-action="menu" aria-label="More options">${DOTS}</button>
       </div>
     </li>`;
 }
@@ -259,7 +271,7 @@ function fillList(listEl, songs) {
 }
 
 function summaryText(songs) {
-  const total = songs.reduce((t, s) => t + (s.duration || 0), 0);
+  const total = songs.reduce((t, s) => t + (shownDuration(s) || 0), 0);
   return `${songs.length} song${songs.length === 1 ? '' : 's'}${songs.length ? ` · ${formatTime(total)}` : ''}`;
 }
 
@@ -308,7 +320,7 @@ function renderBrowse() {
   els.searchResults.innerHTML = `
     <h3 class="browse-title">Browse</h3>
     <div class="browse-grid">
-      ${BROWSE.map((b) => `<button class="browse-tile" style="--tile:${b.color}" data-query="${escapeHtml(b.query)}">${escapeHtml(b.label)}</button>`).join('')}
+      ${BROWSE.map((b) => `<button type="button" class="browse-tile" style="--tile:${b.color}" data-query="${escapeHtml(b.query)}">${escapeHtml(b.label)}</button>`).join('')}
     </div>
     <div class="search-hint">
       <p><span class="badge">Preview</span> Famous songs from any artist play as 30-second previews.</p>
@@ -343,7 +355,7 @@ function renderSearch() {
       } else {
         body = `<ol class="song-list" data-list="search-${key}"></ol>`;
         if (filter === 'all' && songs.length > SECTION_LIMIT && !expanded.has(key)) {
-          more = `<button class="see-all" data-expand="${key}">See all ${songs.length}</button>`;
+          more = `<button type="button" class="see-all" data-expand="${key}">See all ${songs.length}</button>`;
         }
       }
       return `
@@ -399,7 +411,7 @@ function goTo(view) {
 
 // Broken cover images fall back to the music-note placeholder.
 document.addEventListener('error', (e) => {
-  const img = e.target;
+  const img = /** @type {HTMLImageElement} */ (e.target);
   if (img.tagName !== 'IMG') return;
   if (img.closest('.thumb')) img.closest('.thumb').innerHTML = NOTE;
   else if (img === els.npArt || img === els.sheetArt) img.hidden = true;
@@ -554,17 +566,17 @@ function openMenu(button, id) {
   const menu = document.createElement('div');
   menu.className = 'menu';
   menu.innerHTML = isLocal(song)
-    ? `<button data-action="edit">Edit name</button>
-       <button data-action="delete" class="danger">Delete from device</button>`
-    : `<button data-action="like">${song.favorite ? 'Remove from' : 'Save to'} Liked Songs</button>
+    ? `<button type="button" data-action="edit">Edit name</button>
+       <button type="button" data-action="delete" class="danger">Delete from device</button>`
+    : `<button type="button" data-action="like">${song.favorite ? 'Remove from' : 'Save to'} Liked Songs</button>
        ${song.link ? `<a href="${escapeHtml(song.link)}" target="_blank" rel="noopener">${SOURCES[song.source].open} ↗</a>` : ''}`;
   menu.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (e.target.closest('a')) {
+    if (closest(e, 'a')) {
       setTimeout(closeMenus); // let the link open first
       return;
     }
-    const action = e.target.closest('button')?.dataset.action;
+    const action = closest(e, 'button')?.dataset.action;
     closeMenus();
     if (action === 'edit') editSong(id);
     if (action === 'delete') removeSong(id);
@@ -574,38 +586,39 @@ function openMenu(button, id) {
 }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.song-menu')) closeMenus();
-  const goto = e.target.closest('[data-goto]');
+  if (!closest(e, '.song-menu')) closeMenus();
+  const goto = closest(e, '[data-goto]');
   if (goto) goTo(goto.dataset.goto);
-  const cmd = e.target.closest('[data-cmd]');
+  const cmd = closest(e, '[data-cmd]');
   if (cmd) runCommand(cmd.dataset.cmd);
 });
 
 document.querySelector('main').addEventListener('click', (e) => {
-  const tile = e.target.closest('[data-query]');
+  const tile = closest(e, '[data-query]');
   if (tile) {
     els.search.value = tile.dataset.query;
     onSearchInput({ immediate: true });
     return;
   }
-  const expand = e.target.closest('[data-expand]');
+  const expand = closest(e, '[data-expand]');
   if (expand) {
     state.search.expanded.add(expand.dataset.expand);
     renderSearch();
     return;
   }
 
-  const row = e.target.closest('.song');
-  if (!row || e.target.closest('.menu') || row.closest('.skeleton')) return;
+  const row = closest(e, '.song');
+  if (!row || closest(e, '.menu') || row.closest('.skeleton')) return;
   const id = row.dataset.id;
-  const action = e.target.closest('[data-action]')?.dataset.action;
+  const action = closest(e, '[data-action]')?.dataset.action;
   if (action === 'fav') return toggleFavorite(id);
-  if (action === 'menu') return openMenu(e.target.closest('button'), id);
+  if (action === 'menu') return openMenu(closest(e, 'button'), id);
 
   if (id === state.currentId) {
     togglePlay();
   } else {
-    playSong(id, state.lists[row.closest('[data-list]').dataset.list] || [id]);
+    const list = /** @type {HTMLElement} */ (row.closest('[data-list]'));
+    playSong(id, state.lists[list.dataset.list] || [id]);
   }
 });
 
@@ -902,15 +915,7 @@ function syncVideo() {
   else v.play().catch(() => {});
 }
 
-els.npOpen.addEventListener('click', (e) => {
-  if (!e.target.closest('[data-cmd]')) openSheet();
-});
-els.npOpen.addEventListener('keydown', (e) => {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target === els.npOpen) {
-    e.preventDefault();
-    openSheet();
-  }
-});
+els.npOpen.addEventListener('click', openSheet);
 els.sheetClose.addEventListener('click', closeSheet);
 els.sheet.addEventListener('click', (e) => { if (e.target === els.sheet) closeSheet(); });
 document.addEventListener('visibilitychange', () => {
@@ -1126,10 +1131,10 @@ els.fileInput.addEventListener('change', async () => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && state.sheetOpen) return closeSheet();
-  if (e.target.closest('input, textarea, dialog, [role="button"]') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (closest(e, 'input, textarea, dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
   switch (e.key) {
     case ' ':
-      if (e.target.closest('button')) return;
+      if (closest(e, 'button')) return;
       e.preventDefault();
       togglePlay();
       break;
@@ -1168,7 +1173,9 @@ if ('mediaSession' in navigator) {
     seekforward: (d) => { els.audio.currentTime = Math.min(els.audio.currentTime + (d.seekOffset || 10), els.audio.duration || 0); },
   };
   for (const [action, handler] of Object.entries(handlers)) {
-    try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* unsupported action */ }
+    try {
+      navigator.mediaSession.setActionHandler(/** @type {MediaSessionAction} */ (action), handler);
+    } catch { /* unsupported action */ }
   }
 }
 

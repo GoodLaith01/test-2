@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -30,15 +30,15 @@
     </header>
 
     <nav class="nav" id="nav" aria-label="Main">
-      <button class="nav-btn active" data-goto="library" aria-current="page">
+      <button type="button" class="nav-btn active" data-goto="library" aria-current="page">
         <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
         <span>My Songs</span>
       </button>
-      <button class="nav-btn" data-goto="liked">
+      <button type="button" class="nav-btn" data-goto="liked">
         <svg viewBox="0 0 24 24"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>
         <span>Liked Songs</span>
       </button>
-      <button class="nav-btn" data-goto="search">
+      <button type="button" class="nav-btn" data-goto="search">
         <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16a6.47 6.47 0 0 0 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
         <span>Search</span>
       </button>
@@ -62,7 +62,7 @@
             <li class="desktop-only"><span class="tip-icon">🖱️</span><span>Or drag &amp; drop files onto this window.</span></li>
           </ul>
           <label class="btn btn-primary" for="file-input">Add songs</label>
-          <p class="muted">Or <button class="link-btn" data-goto="search">search for music</button> online.</p>
+          <p class="muted">Or <button type="button" class="link-btn" data-goto="search">search for music</button> online.</p>
         </div>
       </section>
 
@@ -77,7 +77,7 @@
             <h2>Liked Songs</h2>
             <p class="summary" id="liked-summary"></p>
           </div>
-          <button class="play-btn play-big" id="play-liked" aria-label="Play Liked Songs">
+          <button type="button" class="play-btn play-big" id="play-liked" aria-label="Play Liked Songs">
             <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </div>
@@ -95,15 +95,15 @@
           <div class="search-box">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16a6.47 6.47 0 0 0 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
             <input id="search" type="search" placeholder="Songs, artists or moods" autocomplete="off" autocorrect="off" enterkeyhint="search">
-            <button class="icon-btn" id="search-clear" aria-label="Clear search" hidden>
+            <button type="button" class="icon-btn" id="search-clear" aria-label="Clear search" hidden>
               <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
             </button>
           </div>
           <div class="chips" role="group" aria-label="Filter results" hidden>
-            <button class="chip active" data-filter="all">All</button>
-            <button class="chip" data-filter="famous">Famous songs</button>
-            <button class="chip" data-filter="audius">Full songs (free)</button>
-            <button class="chip" data-filter="local">My songs</button>
+            <button type="button" class="chip active" data-filter="all">All</button>
+            <button type="button" class="chip" data-filter="famous">Famous songs</button>
+            <button type="button" class="chip" data-filter="audius">Full songs (free)</button>
+            <button type="button" class="chip" data-filter="local">My songs</button>
           </div>
         </div>
         <div id="search-results"></div>
@@ -114,36 +114,38 @@
   <!-- Player bar: full controls on computers, a compact mini player on phones -->
   <footer class="player" id="player" hidden>
     <div class="mini-progress" aria-hidden="true"><span id="mini-progress"></span></div>
-    <div class="now-playing" id="np-open" role="button" tabindex="0" aria-label="Open Now Playing">
-      <div class="cover" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
-        <img id="np-art" alt="" hidden>
-      </div>
-      <div class="np-text">
-        <div class="np-title" id="np-title">Nothing playing</div>
-        <div class="np-artist" id="np-artist"></div>
-      </div>
-      <button class="icon-btn fav-btn" data-cmd="fav" aria-label="Add to Liked Songs">
+    <div class="now-playing">
+      <button type="button" class="np-open" id="np-open" title="Open Now Playing">
+        <span class="cover" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+          <img id="np-art" src="icons/icon.svg" alt="" hidden>
+        </span>
+        <span class="np-text">
+          <span class="np-title" id="np-title">Nothing playing</span>
+          <span class="np-artist" id="np-artist"></span>
+        </span>
+      </button>
+      <button type="button" class="icon-btn fav-btn" data-cmd="fav" aria-label="Add to Liked Songs">
         <svg viewBox="0 0 24 24"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>
       </button>
     </div>
 
     <div class="controls">
       <div class="buttons">
-        <button class="icon-btn" data-cmd="shuffle" aria-label="Shuffle" aria-pressed="false">
+        <button type="button" class="icon-btn" data-cmd="shuffle" aria-label="Shuffle" aria-pressed="false">
           <svg viewBox="0 0 24 24"><path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04z"/></svg>
         </button>
-        <button class="icon-btn" data-cmd="prev" aria-label="Previous">
+        <button type="button" class="icon-btn" data-cmd="prev" aria-label="Previous">
           <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
         </button>
-        <button class="play-btn" data-cmd="play" aria-label="Play">
+        <button type="button" class="play-btn" data-cmd="play" aria-label="Play">
           <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           <svg class="i-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
         </button>
-        <button class="icon-btn" data-cmd="next" aria-label="Next">
+        <button type="button" class="icon-btn" data-cmd="next" aria-label="Next">
           <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm10-12v12h2V6z"/></svg>
         </button>
-        <button class="icon-btn" data-cmd="repeat" aria-label="Repeat: off" data-mode="off">
+        <button type="button" class="icon-btn" data-cmd="repeat" aria-label="Repeat: off" data-mode="off">
           <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg>
           <span class="repeat-one">1</span>
         </button>
@@ -155,13 +157,13 @@
       </div>
     </div>
 
-    <button class="play-btn mini-play" data-cmd="play" aria-label="Play">
+    <button type="button" class="play-btn mini-play" data-cmd="play" aria-label="Play">
       <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
       <svg class="i-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
     </button>
 
     <div class="volume">
-      <button class="icon-btn" id="mute" aria-label="Mute">
+      <button type="button" class="icon-btn" id="mute" aria-label="Mute">
         <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg>
       </button>
       <input id="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
@@ -172,7 +174,7 @@
   <section class="np-sheet" id="np-sheet" aria-label="Now Playing" hidden>
     <div class="np-sheet-inner">
       <div class="np-sheet-top">
-        <button class="icon-btn" id="np-close" aria-label="Close Now Playing">
+        <button type="button" class="icon-btn" id="np-close" aria-label="Close Now Playing">
           <svg viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
         </button>
         <span>Now Playing</span>
@@ -182,15 +184,15 @@
         <div class="np-media-empty" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
         </div>
-        <img id="sheet-art" alt="" hidden>
+        <img id="sheet-art" src="icons/icon.svg" alt="" hidden>
         <video id="sheet-video" muted playsinline webkit-playsinline preload="auto" hidden></video>
       </div>
       <div class="np-sheet-info">
         <div class="np-sheet-text">
-          <h2 id="sheet-title"></h2>
+          <h2 id="sheet-title">Nothing playing</h2>
           <p id="sheet-artist"></p>
         </div>
-        <button class="icon-btn fav-btn big-fav" data-cmd="fav" aria-label="Add to Liked Songs">
+        <button type="button" class="icon-btn fav-btn big-fav" data-cmd="fav" aria-label="Add to Liked Songs">
           <svg viewBox="0 0 24 24"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>
         </button>
       </div>
@@ -200,20 +202,20 @@
         <span class="time time-total">0:00</span>
       </div>
       <div class="buttons sheet-buttons">
-        <button class="icon-btn" data-cmd="shuffle" aria-label="Shuffle" aria-pressed="false">
+        <button type="button" class="icon-btn" data-cmd="shuffle" aria-label="Shuffle" aria-pressed="false">
           <svg viewBox="0 0 24 24"><path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04z"/></svg>
         </button>
-        <button class="icon-btn" data-cmd="prev" aria-label="Previous">
+        <button type="button" class="icon-btn" data-cmd="prev" aria-label="Previous">
           <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
         </button>
-        <button class="play-btn" data-cmd="play" aria-label="Play">
+        <button type="button" class="play-btn" data-cmd="play" aria-label="Play">
           <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           <svg class="i-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
         </button>
-        <button class="icon-btn" data-cmd="next" aria-label="Next">
+        <button type="button" class="icon-btn" data-cmd="next" aria-label="Next">
           <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm10-12v12h2V6z"/></svg>
         </button>
-        <button class="icon-btn" data-cmd="repeat" aria-label="Repeat: off" data-mode="off">
+        <button type="button" class="icon-btn" data-cmd="repeat" aria-label="Repeat: off" data-mode="off">
           <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg>
           <span class="repeat-one">1</span>
         </button>
@@ -227,13 +229,13 @@
 
   <dialog id="edit-dialog">
     <form method="dialog" id="edit-form">
-      <h2>Edit song</h2>
+      <h2 class="dialog-title">Edit song</h2>
       <p class="dialog-hint" id="edit-hint" hidden>Give this song a name so it's easy to find.</p>
-      <label>Title <input name="title" required autocomplete="off"></label>
-      <label>Artist <input name="artist" autocomplete="off"></label>
+      <label>Title <input class="dialog-input" type="text" name="title" required autocomplete="off"></label>
+      <label>Artist <input class="dialog-input" type="text" name="artist" autocomplete="off"></label>
       <div class="dialog-actions">
-        <button class="btn" value="cancel" formnovalidate>Cancel</button>
-        <button class="btn btn-primary" value="save">Save</button>
+        <button type="submit" class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button type="submit" class="btn btn-primary" value="save">Save</button>
       </div>
     </form>
   </dialog>

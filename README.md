@@ -37,7 +37,8 @@ See [PLAN.md](PLAN.md) for what's done and what's next.
 2. Click the **Install** icon in the address bar to get a desktop app.
 3. Click **Add songs** (or drag files onto the window) to add MP3/M4A/WAV/FLAC files.
 
-Keyboard: **Space** play/pause · **← / →** skip 5 seconds · **N / P** next/previous · **/** search.
+Keyboard: **Space** play/pause · **← / →** skip 5 seconds ·
+**N / P** next/previous · **/** search.
 
 ### iPhone (Safari)
 
@@ -48,6 +49,7 @@ Keyboard: **Space** play/pause · **← / →** skip 5 seconds · **N / P** next
    - **Choose Files** to pick music files from the **Files** app or iCloud Drive.
 
 Notes:
+
 - **Famous songs** play as 30-second previews. Full versions of famous songs
   from big labels can't legally be streamed for free without ads, so to hear
   the whole song, add a music file you own to *My Songs*.

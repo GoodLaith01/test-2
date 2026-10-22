@@ -33,7 +33,8 @@ listen to your favorites while you work — on Windows (Chrome/Edge) and iPhone
 
 ## Phase 1.5 — Liked Songs & Search (done)
 
-- [x] Three places: **My Songs**, **Liked Songs**, **Search** (bottom tab bar on iPhone)
+- [x] Three places: **My Songs**, **Liked Songs**, **Search**
+      (bottom tab bar on iPhone)
 - [x] Liked Songs playlist: like any song (your own or from Search), play all
 - [x] Search your songs + free online music in one place
 - [x] Full songs, free and ad-free, from Audius (artists share them for free)
