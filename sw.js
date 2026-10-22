@@ -1,11 +1,12 @@
 // Caches the app itself so it opens offline. Songs are stored in IndexedDB, not here.
-const CACHE = 'my-music-v1';
+const CACHE = 'my-music-v2';
 const ASSETS = [
   './',
   'index.html',
   'styles.css',
   'app.js',
   'db.js',
+  'online.js',
   'manifest.webmanifest',
   'icons/icon.svg',
   'icons/icon-192.png',

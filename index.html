@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>My Music</title>
-  <meta name="description" content="Your personal music player. Add your songs and listen anywhere.">
+  <meta name="description" content="Your personal music player. Add your songs, search free music and listen anywhere.">
   <meta name="theme-color" content="#121212">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -29,36 +29,88 @@
       <input id="file-input" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.opus" multiple hidden>
     </header>
 
-    <nav class="toolbar">
-      <div class="tabs" role="tablist">
-        <button class="tab active" role="tab" data-view="all" aria-selected="true">All songs</button>
-        <button class="tab" role="tab" data-view="favorites" aria-selected="false">Favorites</button>
-      </div>
-      <input id="search" class="search" type="search" placeholder="Search songs or artists" autocomplete="off">
+    <nav class="nav" id="nav" aria-label="Main">
+      <button class="nav-btn active" data-goto="library" aria-current="page">
+        <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+        <span>My Songs</span>
+      </button>
+      <button class="nav-btn" data-goto="liked">
+        <svg viewBox="0 0 24 24"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>
+        <span>Liked Songs</span>
+      </button>
+      <button class="nav-btn" data-goto="search">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16a6.47 6.47 0 0 0 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <span>Search</span>
+      </button>
     </nav>
 
-    <main class="library" id="library">
-      <p class="summary" id="summary"></p>
-      <ol class="song-list" id="song-list"></ol>
-      <div class="empty" id="empty" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
-        <h2 id="empty-title">Your library is empty</h2>
-        <p id="empty-text">Tap <strong>Add songs</strong> to pick music files from this device.
-          <span class="desktop-only">You can also drag &amp; drop files here.</span></p>
-      </div>
+    <main>
+      <!-- My Songs: files added from this device -->
+      <section class="view" id="view-library" data-view="library">
+        <h2 class="view-title">My Songs</h2>
+        <p class="summary" id="library-summary"></p>
+        <ol class="song-list" data-list="library"></ol>
+        <div class="empty" id="library-empty" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+          <h3>No songs on this device yet</h3>
+          <p>Tap <strong>Add songs</strong> to pick music files from this device.
+            <span class="desktop-only">You can also drag &amp; drop files here.</span></p>
+          <p>Or go to <button class="link-btn" data-goto="search">Search</button> to find free music online.</p>
+        </div>
+      </section>
+
+      <!-- Liked Songs -->
+      <section class="view" id="view-liked" data-view="liked" hidden>
+        <div class="hero">
+          <div class="hero-art" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>
+          </div>
+          <div class="hero-text">
+            <p class="hero-kicker">Playlist</p>
+            <h2>Liked Songs</h2>
+            <p class="summary" id="liked-summary"></p>
+          </div>
+          <button class="play-btn play-big" id="play-liked" aria-label="Play Liked Songs">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+        <ol class="song-list" data-list="liked"></ol>
+        <div class="empty" id="liked-empty" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>
+          <h3>Songs you like will appear here</h3>
+          <p>Tap the heart next to any song — your own or one from Search — to save it here.</p>
+        </div>
+      </section>
+
+      <!-- Search -->
+      <section class="view" id="view-search" data-view="search" hidden>
+        <h2 class="view-title">Search</h2>
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16a6.47 6.47 0 0 0 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <input id="search" type="search" placeholder="What do you want to listen to?" autocomplete="off" enterkeyhint="search">
+        </div>
+        <div class="chips" role="group" aria-label="Filter results">
+          <button class="chip active" data-filter="all">All</button>
+          <button class="chip" data-filter="audius">Full songs (free)</button>
+          <button class="chip" data-filter="itunes">Famous hits (previews)</button>
+          <button class="chip" data-filter="local">My songs</button>
+        </div>
+        <div id="search-results"></div>
+      </section>
     </main>
   </div>
 
   <footer class="player" id="player">
     <div class="now-playing">
-      <div class="cover" id="np-cover" aria-hidden="true">
+      <div class="cover" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+        <img id="np-art" alt="" hidden>
       </div>
       <div class="np-text">
         <div class="np-title" id="np-title">Nothing playing</div>
         <div class="np-artist" id="np-artist">Pick a song to start</div>
       </div>
-      <button class="icon-btn fav-btn" id="np-fav" aria-label="Add to favorites" hidden>
+      <button class="icon-btn fav-btn" id="np-fav" aria-label="Add to Liked Songs" hidden>
         <svg viewBox="0 0 24 24"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>
       </button>
     </div>
@@ -97,6 +149,7 @@
       <input id="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
     </div>
   </footer>
+
 
   <div class="drop-overlay" id="drop-overlay" hidden>Drop songs to add them</div>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
